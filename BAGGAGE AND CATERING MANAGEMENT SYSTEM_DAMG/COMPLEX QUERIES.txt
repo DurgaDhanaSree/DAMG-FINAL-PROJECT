@@ -1,0 +1,947 @@
+ -- Drop Tables in Reverse Order of Dependency
+--DDL  
+ 
+DROP TABLE BaggageTracking CASCADE CONSTRAINTS;
+DROP TABLE InFlightSales CASCADE CONSTRAINTS;
+DROP TABLE Payment CASCADE CONSTRAINTS;
+DROP TABLE MealInventory CASCADE CONSTRAINTS;
+DROP TABLE PassengerMeal CASCADE CONSTRAINTS;
+DROP TABLE Meal CASCADE CONSTRAINTS;
+DROP TABLE Vendor CASCADE CONSTRAINTS;
+DROP TABLE Baggage CASCADE CONSTRAINTS;
+DROP TABLE BaggageFees CASCADE CONSTRAINTS;
+DROP TABLE BaggagePolicy CASCADE CONSTRAINTS;
+DROP TABLE Booking CASCADE CONSTRAINTS;
+DROP TABLE Flight CASCADE CONSTRAINTS;
+DROP TABLE Airport CASCADE CONSTRAINTS;
+DROP TABLE Passenger CASCADE CONSTRAINTS;
+DROP TABLE ClassPolicy CASCADE CONSTRAINTS;
+
+CREATE TABLE ClassPolicy (
+    ClassID NUMBER PRIMARY KEY NOT NULL,
+    ClassName VARCHAR2(20) NOT NULL UNIQUE,
+    BaggageAllowance NUMBER NOT NULL,
+    MealAllowance NUMBER NOT NULL
+);
+
+CREATE TABLE Passenger (
+    PassengerID NUMBER PRIMARY KEY NOT NULL,
+    Name VARCHAR2(100) NOT NULL,
+    Email VARCHAR2(100) NOT NULL UNIQUE,
+    Phone VARCHAR2(15) NOT NULL UNIQUE,
+    ClassID NUMBER NOT NULL,
+    FOREIGN KEY (ClassID) REFERENCES ClassPolicy(ClassID)
+);
+CREATE TABLE Airport (
+    AirportID NUMBER PRIMARY KEY NOT NULL,
+    AirportName VARCHAR2(100) NOT NULL,
+    Location VARCHAR2(100) NOT NULL
+);
+CREATE TABLE Flight (
+    FlightID NUMBER PRIMARY KEY NOT NULL,
+    FlightNumber VARCHAR2(20) NOT NULL UNIQUE,
+    DepartureAirportID NUMBER NOT NULL,
+    ArrivalAirportID NUMBER NOT NULL,
+    DepartureTime DATE NOT NULL,
+    ArrivalTime DATE NOT NULL,
+    FOREIGN KEY (DepartureAirportID) REFERENCES Airport(AirportID),
+    FOREIGN KEY (ArrivalAirportID) REFERENCES Airport(AirportID)
+);
+
+CREATE TABLE Booking (
+    BookingID NUMBER PRIMARY KEY NOT NULL,
+    PassengerID NUMBER NOT NULL,
+    FlightID NUMBER NOT NULL,
+    BookingDate DATE NOT NULL,
+    Status VARCHAR2(20) NOT NULL CHECK (Status IN ('Confirmed', 'Canceled')),
+    FOREIGN KEY (PassengerID) REFERENCES Passenger(PassengerID),
+    FOREIGN KEY (FlightID) REFERENCES Flight(FlightID)
+);
+
+CREATE TABLE BaggagePolicy (
+    PolicyID NUMBER PRIMARY KEY NOT NULL,
+    ClassID NUMBER NOT NULL,
+    WeightLimit NUMBER NOT NULL,
+    SizeLimit VARCHAR2(50) NOT NULL,
+    FreeAllowance NUMBER NOT NULL CHECK (FreeAllowance >= 0),
+    FOREIGN KEY (ClassID) REFERENCES ClassPolicy(ClassID)
+);
+
+
+CREATE TABLE BaggageFees (
+    FeeID NUMBER PRIMARY KEY NOT NULL,
+    ClassID NUMBER NOT NULL,
+    WeightLimit NUMBER NOT NULL,
+    FeeAmount NUMBER NOT NULL,
+    FOREIGN KEY (ClassID) REFERENCES ClassPolicy(ClassID)
+);
+CREATE TABLE Baggage (
+    BaggageID NUMBER PRIMARY KEY NOT NULL,
+    PassengerID NUMBER NOT NULL,
+    FlightID NUMBER NOT NULL,
+    ClassID NUMBER NOT NULL,
+    Weight NUMBER NOT NULL CHECK (Weight <= 60),
+    SizeLimit VARCHAR2(50) NOT NULL,
+    Status VARCHAR2(20) NOT NULL CHECK (Status IN ('Checked In', 'In Transit', 'Loaded on Flight', 'Delivered')),
+    FOREIGN KEY (PassengerID) REFERENCES Passenger(PassengerID),
+    FOREIGN KEY (FlightID) REFERENCES Flight(FlightID),
+    FOREIGN KEY (ClassID) REFERENCES ClassPolicy(ClassID)
+);
+ CREATE TABLE Vendor (
+    VendorID NUMBER PRIMARY KEY NOT NULL,
+    VendorName VARCHAR2(100) NOT NULL,
+    Contact VARCHAR2(100) NOT NULL,
+    Address VARCHAR2(200) NOT NULL
+);
+
+
+CREATE TABLE Meal (
+    MealID NUMBER PRIMARY KEY NOT NULL,
+    Name VARCHAR2(100) NOT NULL,
+    Type VARCHAR2(20) NOT NULL CHECK (Type IN ('Veg', 'Non-Veg')),
+    ClassAvailable NUMBER NOT NULL,
+    VendorID NUMBER NOT NULL,
+    Price NUMBER NOT NULL,
+    FOREIGN KEY (ClassAvailable) REFERENCES ClassPolicy(ClassID),
+    FOREIGN KEY (VendorID) REFERENCES Vendor(VendorID)
+);
+
+
+CREATE TABLE MealInventory (
+    InventoryID NUMBER PRIMARY KEY NOT NULL,
+    MealID NUMBER NOT NULL,
+    Quantity NUMBER NOT NULL CHECK (Quantity >= 0),
+    "Date" TIMESTAMP NOT NULL,
+    FOREIGN KEY (MealID) REFERENCES Meal(MealID)
+);
+
+
+CREATE TABLE PassengerMeal (
+    PassengerMealID NUMBER PRIMARY KEY NOT NULL,
+    PassengerID NUMBER NOT NULL,
+    MealID NUMBER NOT NULL,
+    BookingID NUMBER NOT NULL,
+    FOREIGN KEY (PassengerID) REFERENCES Passenger(PassengerID),
+    FOREIGN KEY (MealID) REFERENCES Meal(MealID),
+    FOREIGN KEY (BookingID) REFERENCES Booking(BookingID)
+);
+
+
+CREATE TABLE Payment (
+    PaymentID NUMBER PRIMARY KEY NOT NULL,
+    BookingID NUMBER NOT NULL,
+    Amount NUMBER NOT NULL CHECK (Amount > 0),
+    PaymentDate DATE NOT NULL,
+    PaymentMethod VARCHAR2(50) NOT NULL CHECK (PaymentMethod IN ('Credit Card', 'Debit Card', 'PayPal', 'Cash')),
+    FOREIGN KEY (BookingID) REFERENCES Booking(BookingID)
+);
+
+
+CREATE TABLE InFlightSales (
+    SaleID NUMBER PRIMARY KEY NOT NULL,
+    FlightID NUMBER NOT NULL,
+    Item VARCHAR2(100) NOT NULL,
+    QuantitySold NUMBER NOT NULL CHECK (QuantitySold >= 0),
+    TotalRevenue NUMBER(10, 2) NOT NULL,
+    FOREIGN KEY (FlightID) REFERENCES Flight(FlightID)
+);
+
+
+CREATE TABLE BaggageTracking (
+    TrackingID NUMBER PRIMARY KEY NOT NULL,
+    BaggageID NUMBER NOT NULL,
+    Status VARCHAR2(20) NOT NULL CHECK (Status IN ('Checked In', 'In Transit', 'Loaded on Flight', 'Delivered')),
+    Location VARCHAR2(100) NOT NULL,
+    Timestamp TIMESTAMP NOT NULL,
+    FOREIGN KEY (BaggageID) REFERENCES Baggage(BaggageID)
+);
+
+--DML
+
+-- INSERT INTO CLASS POLICY
+INSERT INTO ClassPolicy (ClassID, ClassName, BaggageAllowance, MealAllowance) 
+VALUES (1, 'Economy', 46, 1);
+
+INSERT INTO ClassPolicy (ClassID, ClassName, BaggageAllowance, MealAllowance) 
+VALUES (2, 'Business', 60, 2);
+
+ 
+
+-- INSERT INTO PASSENGER
+INSERT INTO Passenger (PassengerID, Name, Email, Phone, ClassID)
+VALUES (101, 'John Doe', 'john.doe@example.com', '1234567890', 1);
+
+INSERT INTO Passenger (PassengerID, Name, Email, Phone, ClassID)
+VALUES (102, 'Jane Smith', 'jane.smith@example.com', '0987654321', 2);
+
+INSERT INTO Passenger (PassengerID, Name, Email, Phone, ClassID)
+VALUES (103, 'Robert Brown', 'robert.brown@example.com', '1122334455', 1);
+
+INSERT INTO Passenger (PassengerID, Name, Email, Phone, ClassID)
+VALUES (104, 'Mary Johnson', 'mary.johnson@example.com', '2233445566', 2);
+
+INSERT INTO Passenger (PassengerID, Name, Email, Phone, ClassID)
+VALUES (105, 'William Lee', 'william.lee@example.com', '3344556677', 1);
+
+INSERT INTO Passenger (PassengerID, Name, Email, Phone, ClassID)
+VALUES (106, 'Eva Green', 'eva.green@example.com', '4455667788', 2);
+
+INSERT INTO Passenger (PassengerID, Name, Email, Phone, ClassID)
+VALUES (107, 'Liam Neeson', 'liam.neeson@example.com', '5566778899', 1);
+
+INSERT INTO Passenger (PassengerID, Name, Email, Phone, ClassID)
+VALUES (108, 'Scarlett Johansson', 'scarlett.johansson@example.com', '6677889900', 1);
+
+INSERT INTO Passenger (PassengerID, Name, Email, Phone, ClassID)
+VALUES (109, 'Chris Hemsworth', 'chris.hemsworth@example.com', '7788990011', 2);
+
+INSERT INTO Passenger (PassengerID, Name, Email, Phone, ClassID)
+VALUES (110, 'Tom Hiddleston', 'tom.hiddleston@example.com', '8899001122', 1);
+
+INSERT INTO Passenger (PassengerID, Name, Email, Phone, ClassID)
+VALUES (111, 'Natalie Portman', 'natalie.portman@example.com', '9900112233', 2);
+
+INSERT INTO Passenger (PassengerID, Name, Email, Phone, ClassID)
+VALUES (112, 'George Clooney', 'george.clooney1@example.com', '7788991122', 2);
+
+INSERT INTO Passenger (PassengerID, Name, Email, Phone, ClassID)
+VALUES (113, 'Morgan Freeman', 'morgan.freeman113@example.com', '8000011223', 1);
+
+INSERT INTO Passenger (PassengerID, Name, Email, Phone, ClassID)
+VALUES (114, 'Angelina Jolie', 'angelina.jolie114@example.com', '8000112234', 2);
+
+INSERT INTO Passenger (PassengerID, Name, Email, Phone, ClassID)
+VALUES (115, 'Brad Pitt', 'brad.pitt115@example.com', '8000223345', 1);
+
+INSERT INTO Passenger (PassengerID, Name, Email, Phone, ClassID)
+VALUES (116, 'Tom Cruise', 'tom.cruise116@example.com', '8000334456', 2);
+
+INSERT INTO Passenger (PassengerID, Name, Email, Phone, ClassID)
+VALUES (117, 'Johnny Depp', 'johnny.depp117@example.com', '8000445567', 1);
+
+INSERT INTO Passenger (PassengerID, Name, Email, Phone, ClassID)
+VALUES (118, 'Emma Watson', 'emma.watson118@example.com', '8000556678', 2);
+
+INSERT INTO Passenger (PassengerID, Name, Email, Phone, ClassID)
+VALUES (119, 'Keanu Reeves', 'keanu.reeves119@example.com', '8000667789', 1);
+
+INSERT INTO Passenger (PassengerID, Name, Email, Phone, ClassID)
+VALUES (120, 'Charlize Theron', 'charlize.theron120@example.com', '8000778890', 2);
+
+
+ 
+
+-- INSERT INTO AIRPORT
+INSERT INTO Airport (AirportID, AirportName, Location)
+VALUES (1, 'JFK Airport', 'New York, USA');
+
+INSERT INTO Airport (AirportID, AirportName, Location)
+VALUES (2, 'LAX Airport', 'Los Angeles, USA');
+
+INSERT INTO Airport (AirportID, AirportName, Location)
+VALUES (3, 'Heathrow Airport', 'London, UK');
+
+INSERT INTO Airport (AirportID, AirportName, Location)
+VALUES (4, 'Dubai International Airport', 'Dubai, UAE');
+
+INSERT INTO Airport (AirportID, AirportName, Location)
+VALUES (5, 'Changi Airport', 'Singapore');
+
+INSERT INTO Airport (AirportID, AirportName, Location)
+VALUES (6, 'Sydney Airport', 'Sydney, Australia');
+
+INSERT INTO Airport (AirportID, AirportName, Location)
+VALUES (7, 'Tokyo Narita Airport', 'Tokyo, Japan');
+
+
+INSERT INTO Airport (AirportID, AirportName, Location)
+VALUES (8, 'London Heathrow Airport', 'London, UK');
+
+INSERT INTO Airport (AirportID, AirportName, Location)
+VALUES (9, 'Los Angeles International Airport', 'Los Angeles, USA');
+
+INSERT INTO Airport (AirportID, AirportName, Location)
+VALUES (10, 'Dubai International Airport', 'Dubai, UAE');
+
+INSERT INTO Airport (AirportID, AirportName, Location)
+VALUES (11, 'Paris Charles de Gaulle Airport', 'Paris, France');
+
+INSERT INTO Airport (AirportID, AirportName, Location)
+VALUES (12, 'Singapore Changi Airport', 'Singapore');
+
+ --INSERT INTO FLIGHT
+
+INSERT INTO Flight (FlightID, FlightNumber, DepartureAirportID, ArrivalAirportID, DepartureTime, ArrivalTime)
+VALUES (201, 'AA101', 1, 2, TO_DATE('2024-12-01 08:00:00', 'YYYY-MM-DD HH24:MI:SS'), TO_DATE('2024-12-01 11:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO Flight (FlightID, FlightNumber, DepartureAirportID, ArrivalAirportID, DepartureTime, ArrivalTime)
+VALUES (202, 'BA202', 3, 4, TO_DATE('2024-12-02 10:00:00', 'YYYY-MM-DD HH24:MI:SS'), TO_DATE('2024-12-02 14:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO Flight (FlightID, FlightNumber, DepartureAirportID, ArrivalAirportID, DepartureTime, ArrivalTime)
+VALUES (203, 'DL303', 2, 3, TO_DATE('2024-12-03 12:00:00', 'YYYY-MM-DD HH24:MI:SS'), TO_DATE('2024-12-03 16:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO Flight (FlightID, FlightNumber, DepartureAirportID, ArrivalAirportID, DepartureTime, ArrivalTime)
+VALUES (204, 'EK404', 4, 5, TO_DATE('2024-12-04 14:00:00', 'YYYY-MM-DD HH24:MI:SS'), TO_DATE('2024-12-04 18:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO Flight (FlightID, FlightNumber, DepartureAirportID, ArrivalAirportID, DepartureTime, ArrivalTime)
+VALUES (205, 'SQ505', 5, 1, TO_DATE('2024-12-05 16:00:00', 'YYYY-MM-DD HH24:MI:SS'), TO_DATE('2024-12-05 20:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+
+INSERT INTO Flight (FlightID, FlightNumber, DepartureAirportID, ArrivalAirportID, DepartureTime, ArrivalTime)
+VALUES (206, 'QF506', 1, 6, TO_DATE('2024-12-06 07:00:00', 'YYYY-MM-DD HH24:MI:SS'), TO_DATE('2024-12-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO Flight (FlightID, FlightNumber, DepartureAirportID, ArrivalAirportID, DepartureTime, ArrivalTime)
+VALUES (207, 'JL701', 7, 2, TO_DATE('2024-12-07 09:00:00', 'YYYY-MM-DD HH24:MI:SS'), TO_DATE('2024-12-07 13:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+
+
+
+INSERT INTO Flight (FlightID, FlightNumber, DepartureAirportID, ArrivalAirportID, DepartureTime, ArrivalTime)
+VALUES (208, 'BA249', 8, 2, TO_DATE('2024-12-06 13:00:00', 'YYYY-MM-DD HH24:MI:SS'), TO_DATE('2024-12-06 18:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO Flight (FlightID, FlightNumber, DepartureAirportID, ArrivalAirportID, DepartureTime, ArrivalTime)
+VALUES (209, 'AA900', 9, 3, TO_DATE('2024-12-07 11:00:00', 'YYYY-MM-DD HH24:MI:SS'), TO_DATE('2024-12-07 16:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO Flight (FlightID, FlightNumber, DepartureAirportID, ArrivalAirportID, DepartureTime, ArrivalTime)
+VALUES (210, 'EK215', 10, 4, TO_DATE('2024-12-08 07:30:00', 'YYYY-MM-DD HH24:MI:SS'), TO_DATE('2024-12-08 12:30:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO Flight (FlightID, FlightNumber, DepartureAirportID, ArrivalAirportID, DepartureTime, ArrivalTime)
+VALUES (211, 'AF335', 11, 5, TO_DATE('2024-12-09 14:45:00', 'YYYY-MM-DD HH24:MI:SS'), TO_DATE('2024-12-09 19:30:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO Flight (FlightID, FlightNumber, DepartureAirportID, ArrivalAirportID, DepartureTime, ArrivalTime)
+VALUES (212, 'SQ323', 12, 1, TO_DATE('2024-12-10 10:15:00', 'YYYY-MM-DD HH24:MI:SS'), TO_DATE('2024-12-10 14:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+ 
+
+-- INSERT INTO BOOKING
+INSERT INTO Booking (BookingID, PassengerID, FlightID, BookingDate, Status)
+VALUES (301, 101, 201, TO_DATE('2024-11-25', 'YYYY-MM-DD'), 'Confirmed');
+
+INSERT INTO Booking (BookingID, PassengerID, FlightID, BookingDate, Status)
+VALUES (302, 102, 202, TO_DATE('2024-11-26', 'YYYY-MM-DD'), 'Canceled');
+
+INSERT INTO Booking (BookingID, PassengerID, FlightID, BookingDate, Status)
+VALUES (303, 103, 203, TO_DATE('2024-11-27', 'YYYY-MM-DD'), 'Confirmed');
+
+INSERT INTO Booking (BookingID, PassengerID, FlightID, BookingDate, Status)
+VALUES (304, 104, 204, TO_DATE('2024-11-28', 'YYYY-MM-DD'), 'Confirmed');
+
+INSERT INTO Booking (BookingID, PassengerID, FlightID, BookingDate, Status)
+VALUES (305, 105, 205, TO_DATE('2024-11-29', 'YYYY-MM-DD'), 'Canceled');
+
+INSERT INTO Booking (BookingID, PassengerID, FlightID, BookingDate, Status)
+VALUES (306, 106, 206, TO_DATE('2024-12-01', 'YYYY-MM-DD'), 'Confirmed');
+
+INSERT INTO Booking (BookingID, PassengerID, FlightID, BookingDate, Status)
+VALUES (307, 107, 207, TO_DATE('2024-12-02', 'YYYY-MM-DD'), 'Canceled');
+
+
+INSERT INTO Booking (BookingID, PassengerID, FlightID, BookingDate, Status) 
+VALUES (308, 108, 208, TO_DATE('01-12-24', 'DD-MM-YY'), 'Confirmed');
+
+INSERT INTO Booking (BookingID, PassengerID, FlightID, BookingDate, Status)
+VALUES (309, 109, 209, TO_DATE('02-12-24', 'DD-MM-YY'), 'Canceled');
+
+INSERT INTO Booking (BookingID, PassengerID, FlightID, BookingDate, Status)
+VALUES (310, 110, 210, TO_DATE('03-12-24', 'DD-MM-YY'), 'Confirmed');
+
+INSERT INTO Booking (BookingID, PassengerID, FlightID, BookingDate, Status)
+VALUES (311, 111, 211, TO_DATE('04-12-24', 'DD-MM-YY'), 'Confirmed');
+
+INSERT INTO Booking (BookingID, PassengerID, FlightID, BookingDate, Status) 
+VALUES (312, 112, 201, TO_DATE('05-12-24', 'DD-MM-YY'), 'Confirmed');
+
+INSERT INTO Booking (BookingID, PassengerID, FlightID, BookingDate, Status)
+VALUES (313, 113, 202, TO_DATE('06-12-24', 'DD-MM-YY'), 'Canceled');
+
+INSERT INTO Booking (BookingID, PassengerID, FlightID, BookingDate, Status) 
+VALUES (314, 114, 203, TO_DATE('07-12-24', 'DD-MM-YY'), 'Confirmed');
+INSERT INTO Booking (BookingID, PassengerID, FlightID, BookingDate, Status) 
+VALUES (315, 115, 204, TO_DATE('08-12-24', 'DD-MM-YY'), 'Canceled');
+
+INSERT INTO Booking (BookingID, PassengerID, FlightID, BookingDate, Status) 
+VALUES (316, 116, 205, TO_DATE('09-12-24', 'DD-MM-YY'), 'Confirmed');
+
+INSERT INTO Booking (BookingID, PassengerID, FlightID, BookingDate, Status) 
+VALUES (317, 117, 206, TO_DATE('10-12-24', 'DD-MM-YY'), 'Canceled');
+
+INSERT INTO Booking (BookingID, PassengerID, FlightID, BookingDate, Status) 
+VALUES (318, 118, 207, TO_DATE('11-12-24', 'DD-MM-YY'), 'Confirmed');
+
+INSERT INTO Booking (BookingID, PassengerID, FlightID, BookingDate, Status) 
+VALUES (319, 119, 208, TO_DATE('12-12-24', 'DD-MM-YY'), 'Canceled');
+
+INSERT INTO Booking (BookingID, PassengerID, FlightID, BookingDate, Status) 
+VALUES (320, 120, 209, TO_DATE('13-12-24', 'DD-MM-YY'), 'Confirmed');
+
+  
+
+-- INSERT INTO BAGGAGEPOLICY
+INSERT INTO BaggagePolicy (PolicyID, ClassID, WeightLimit, SizeLimit, FreeAllowance)
+VALUES (1, 1, 46, '56x45x25', 1);
+
+INSERT INTO BaggagePolicy (PolicyID, ClassID, WeightLimit, SizeLimit, FreeAllowance)
+VALUES (2, 2, 60, '60x50x30', 2);
+
+ 
+-- INSERT INTO BAGGAGEFEES
+INSERT INTO BaggageFees (FeeID, ClassID, WeightLimit, FeeAmount)
+VALUES (1, 1, 30, 50);
+
+INSERT INTO BaggageFees (FeeID, ClassID, WeightLimit, FeeAmount)
+VALUES (2, 2, 50, 100);
+
+ 
+--INSERT INTO BAGGAGE
+
+INSERT INTO Baggage (BaggageID, PassengerID, FlightID, ClassID, Weight, SizeLimit, Status)
+VALUES (601, 101, 201, 1, 28, '56x45x25', 'Checked In');
+
+INSERT INTO Baggage (BaggageID, PassengerID, FlightID, ClassID, Weight, SizeLimit, Status)
+VALUES (602, 102, 202, 2, 48, '60x50x30', 'In Transit');
+
+INSERT INTO Baggage (BaggageID, PassengerID, FlightID, ClassID, Weight, SizeLimit, Status)
+VALUES (603, 103, 203, 1, 29, '57x45x26', 'Loaded on Flight');
+
+INSERT INTO Baggage (BaggageID, PassengerID, FlightID, ClassID, Weight, SizeLimit, Status)
+VALUES (604, 104, 204, 2, 49, '59x49x29', 'Delivered');
+
+INSERT INTO Baggage (BaggageID, PassengerID, FlightID, ClassID, Weight, SizeLimit, Status)
+VALUES (605, 105, 205, 1, 32, '58x47x28', 'Checked In');
+
+INSERT INTO Baggage (BaggageID, PassengerID, FlightID, ClassID, Weight, SizeLimit, Status)
+VALUES (606, 106, 206, 2, 52, '60x50x30', 'Checked In');
+
+INSERT INTO Baggage (BaggageID, PassengerID, FlightID, ClassID, Weight, SizeLimit, Status)
+VALUES (607, 107, 207, 1, 30, '55x45x25', 'In Transit');
+
+
+INSERT INTO Baggage (BaggageID, PassengerID, FlightID, ClassID, Weight, SizeLimit, Status)
+VALUES (608, 108, 208, 1, 33, '58x47x28', 'Checked In');
+
+INSERT INTO Baggage (BaggageID, PassengerID, FlightID, ClassID, Weight, SizeLimit, Status)
+VALUES (609, 109, 209, 2, 50, '60x50x30', 'In Transit');
+
+INSERT INTO Baggage (BaggageID, PassengerID, FlightID, ClassID, Weight, SizeLimit, Status)
+VALUES (610, 110, 210, 1, 34, '57x46x27', 'Loaded on Flight');
+
+INSERT INTO Baggage (BaggageID, PassengerID, FlightID, ClassID, Weight, SizeLimit, Status)
+VALUES (611, 111, 211, 2, 51, '59x48x28', 'Delivered');
+
+INSERT INTO Baggage (BaggageID, PassengerID, FlightID, ClassID, Weight, SizeLimit, Status)
+VALUES (612, 112, 201, 1, 29, '56x45x25', 'Checked In');
+
+INSERT INTO Baggage (BaggageID, PassengerID, FlightID, ClassID, Weight, SizeLimit, Status)
+VALUES (613, 113, 202, 2, 47, '60x50x30', 'In Transit');
+
+INSERT INTO Baggage (BaggageID, PassengerID, FlightID, ClassID, Weight, SizeLimit, Status)
+VALUES (614, 114, 203, 1, 30, '57x45x26', 'Loaded on Flight');
+
+INSERT INTO Baggage (BaggageID, PassengerID, FlightID, ClassID, Weight, SizeLimit, Status)
+VALUES (615, 115, 204, 2, 49, '59x49x29', 'Delivered');
+
+INSERT INTO Baggage (BaggageID, PassengerID, FlightID, ClassID, Weight, SizeLimit, Status)
+VALUES (616, 116, 205, 1, 32, '58x47x28', 'Checked In');
+
+INSERT INTO Baggage (BaggageID, PassengerID, FlightID, ClassID, Weight, SizeLimit, Status)
+VALUES (617, 117, 206, 2, 50, '60x50x30', 'In Transit');
+
+INSERT INTO Baggage (BaggageID, PassengerID, FlightID, ClassID, Weight, SizeLimit, Status)
+VALUES (618, 118, 207, 1, 31, '57x46x27', 'Loaded on Flight');
+
+INSERT INTO Baggage (BaggageID, PassengerID, FlightID, ClassID, Weight, SizeLimit, Status)
+VALUES (619, 119, 208, 2, 52, '59x48x28', 'Delivered');
+
+INSERT INTO Baggage (BaggageID, PassengerID, FlightID, ClassID, Weight, SizeLimit, Status)
+VALUES (620, 120, 209, 1, 33, '58x47x28', 'Checked In');
+
+ 
+--INSERT INTO VENDOR
+INSERT INTO Vendor (VendorID, VendorName, Contact, Address)
+VALUES (1, 'FoodCo', 'foodco@example.com', '123 Street, New York');
+
+INSERT INTO Vendor (VendorID, VendorName, Contact, Address)
+VALUES (2, 'MealCorp', 'mealcorp@example.com', '456 Avenue, Los Angeles');
+
+INSERT INTO Vendor (VendorID, VendorName, Contact, Address)
+VALUES (3, 'SnackExpress', 'snackexpress@example.com', '789 Boulevard, London');
+
+INSERT INTO Vendor (VendorID, VendorName, Contact, Address)
+VALUES (4, 'AirBites', 'airbites@example.com', '101 Road, Dubai');
+
+INSERT INTO Vendor (VendorID, VendorName, Contact, Address)
+VALUES (5, 'GourmetMeals', 'gourmetmeals@example.com', '202 Lane, Singapore');
+
+INSERT INTO Vendor (VendorID, VendorName, Contact, Address)
+VALUES (6, 'McDonald', 'MacDonald@example.com', '202 Lane, Singapore');
+
+INSERT INTO Vendor (VendorID, VendorName, Contact, Address)
+VALUES (7, 'KFC', 'KFC@example.com', '203 dupont, Toronto');
+
+ 
+
+-- INSERT INTO MEAL
+INSERT INTO Meal (MealID, Name, Type, ClassAvailable, VendorID, Price)
+VALUES (1, 'Veg Sandwich', 'Veg', 1, 1, 5);
+
+INSERT INTO Meal (MealID, Name, Type, ClassAvailable, VendorID, Price)
+VALUES (2, 'Chicken Sandwich', 'Non-Veg', 1, 2, 6);
+
+INSERT INTO Meal (MealID, Name, Type, ClassAvailable, VendorID, Price)
+VALUES (3, 'Fruit Bowl', 'Veg', 2, 3, 7);
+
+INSERT INTO Meal (MealID, Name, Type, ClassAvailable, VendorID, Price)
+VALUES (4, 'Veg Sandwich', 'Veg', 2, 4, 5);
+
+INSERT INTO Meal (MealID, Name, Type, ClassAvailable, VendorID, Price)
+VALUES (5, 'Chicken Sandwich', 'Non-Veg', 2, 5, 6);
+
+ INSERT INTO Meal (MealID, Name, Type, ClassAvailable, VendorID, Price)
+VALUES (6, 'Vegetarian Pasta', 'Veg', 1, 6, 7);
+
+INSERT INTO Meal (MealID, Name, Type, ClassAvailable, VendorID, Price)
+VALUES (7, 'Beef Stew', 'Non-Veg', 2, 7, 8);
+
+ 
+
+-- INSERT INTO MEALINVENTORY
+INSERT INTO MealInventory (InventoryID, MealID, Quantity, "Date")
+VALUES (701, 1, 100, TO_TIMESTAMP('2024-11-25 08:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO MealInventory (InventoryID, MealID, Quantity, "Date")
+VALUES (702, 2, 50, TO_TIMESTAMP('2024-11-26 08:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO MealInventory (InventoryID, MealID, Quantity, "Date")
+VALUES (703, 3, 70, TO_TIMESTAMP('2024-11-27 08:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO MealInventory (InventoryID, MealID, Quantity, "Date")
+VALUES (704, 4, 120, TO_TIMESTAMP('2024-11-28 08:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO MealInventory (InventoryID, MealID, Quantity, "Date")
+VALUES (705, 5, 60, TO_TIMESTAMP('2024-11-29 08:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO MealInventory (InventoryID, MealID, Quantity, "Date")
+VALUES (706, 6, 90, TO_TIMESTAMP('2024-12-01 08:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO MealInventory (InventoryID, MealID, Quantity, "Date")
+VALUES (707, 7, 40, TO_TIMESTAMP('2024-12-02 08:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+ 
+
+-- INSERT INTO PASSENGERMEAL
+INSERT INTO PassengerMeal (PassengerMealID, PassengerID, MealID, BookingID)
+VALUES (801, 101, 1, 301);
+
+INSERT INTO PassengerMeal (PassengerMealID, PassengerID, MealID, BookingID)
+VALUES (802, 102, 2, 302);
+
+INSERT INTO PassengerMeal (PassengerMealID, PassengerID, MealID, BookingID)
+VALUES (803, 103, 3, 303);
+
+INSERT INTO PassengerMeal (PassengerMealID, PassengerID, MealID, BookingID)
+VALUES (804, 104, 4, 304);
+
+INSERT INTO PassengerMeal (PassengerMealID, PassengerID, MealID, BookingID)
+VALUES (805, 105, 5, 305);
+
+INSERT INTO PassengerMeal (PassengerMealID, PassengerID, MealID, BookingID)
+VALUES (806, 106, 6, 306);
+
+INSERT INTO PassengerMeal (PassengerMealID, PassengerID, MealID, BookingID)
+VALUES (807, 107, 7, 307);
+
+INSERT INTO PassengerMeal (PassengerMealID, PassengerID, MealID, BookingID) 
+VALUES (808, 108, 1, 308);
+
+INSERT INTO PassengerMeal (PassengerMealID, PassengerID, MealID, BookingID) 
+VALUES (809, 109, 2, 309);
+
+INSERT INTO PassengerMeal (PassengerMealID, PassengerID, MealID, BookingID) 
+VALUES (810, 110, 3, 310);
+
+INSERT INTO PassengerMeal (PassengerMealID, PassengerID, MealID, BookingID) 
+VALUES (811, 111, 4, 311);
+
+INSERT INTO PassengerMeal (PassengerMealID, PassengerID, MealID, BookingID) 
+VALUES (815, 115, 1, 315);
+
+INSERT INTO PassengerMeal (PassengerMealID, PassengerID, MealID, BookingID) 
+VALUES (816, 116, 2, 316);
+
+INSERT INTO PassengerMeal (PassengerMealID, PassengerID, MealID, BookingID) 
+VALUES (817, 117, 3, 317);
+
+INSERT INTO PassengerMeal (PassengerMealID, PassengerID, MealID, BookingID) 
+VALUES (818, 118, 4, 318);
+
+INSERT INTO PassengerMeal (PassengerMealID, PassengerID, MealID, BookingID) 
+VALUES (819, 119, 5, 319);
+
+INSERT INTO PassengerMeal (PassengerMealID, PassengerID, MealID, BookingID) 
+VALUES (820, 120, 6, 320);
+
+
+
+-- INSERT INTO PAYMENT
+INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod)
+VALUES (901, 301, 200, TO_DATE('2024-11-25', 'YYYY-MM-DD'), 'Credit Card');
+
+INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod)
+VALUES (902, 302, 150, TO_DATE('2024-11-26', 'YYYY-MM-DD'), 'Debit Card');
+
+INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod)
+VALUES (903, 303, 250, TO_DATE('2024-11-27', 'YYYY-MM-DD'), 'Cash');
+
+INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod)
+VALUES (904, 304, 300, TO_DATE('2024-11-28', 'YYYY-MM-DD'), 'Credit Card');
+
+INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod)
+VALUES (905, 305, 350, TO_DATE('2024-11-29', 'YYYY-MM-DD'), 'PayPal');
+
+
+INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod)
+VALUES (906, 306, 270, TO_DATE('2024-12-01', 'YYYY-MM-DD'), 'Credit Card');
+
+INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod)
+VALUES (907, 307, 180, TO_DATE('2024-12-02', 'YYYY-MM-DD'), 'Debit Card');
+
+
+INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod) 
+VALUES (908, 308, 220, TO_DATE('2024-12-03', 'YYYY-MM-DD'), 'Credit Card');
+
+INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod)
+VALUES (909, 309, 210, TO_DATE('2024-12-04', 'YYYY-MM-DD'), 'Debit Card');
+
+INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod) 
+VALUES (910, 310, 260, TO_DATE('2024-12-05', 'YYYY-MM-DD'), 'Cash');
+
+INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod) 
+VALUES (911, 311, 280, TO_DATE('2024-12-06', 'YYYY-MM-DD'), 'Credit Card');
+
+INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod) 
+VALUES (912, 312, 320, TO_DATE('2024-12-07', 'YYYY-MM-DD'), 'PayPal');
+
+INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod) 
+VALUES (913, 313, 230, TO_DATE('2024-12-08', 'YYYY-MM-DD'), 'Credit Card');
+
+INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod) 
+VALUES (914, 314, 180, TO_DATE('2024-12-09', 'YYYY-MM-DD'), 'Debit Card');
+
+INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod) 
+VALUES (915, 315, 200, TO_DATE('2024-12-10', 'YYYY-MM-DD'), 'Cash');
+
+INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod) 
+VALUES (916, 316, 250, TO_DATE('2024-12-11', 'YYYY-MM-DD'), 'Credit Card');
+
+INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod) 
+VALUES (917, 317, 190, TO_DATE('2024-12-12', 'YYYY-MM-DD'), 'Debit Card');
+
+INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod) 
+VALUES (918, 318, 270, TO_DATE('2024-12-13', 'YYYY-MM-DD'), 'PayPal');
+
+INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod) 
+VALUES (919, 319, 300, TO_DATE('2024-12-14', 'YYYY-MM-DD'), 'Credit Card');
+
+INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod) 
+VALUES (920, 320, 350, TO_DATE('2024-12-15', 'YYYY-MM-DD'), 'Cash');
+
+ 
+--INSERT INTO INFLIGHTSALES
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1001, 201, 'Snacks', 100, 500);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1002, 202, 'Drinks', 80, 240);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1003, 203, 'Magazines', 50, 150);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1004, 204, 'Headsets', 120, 600);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1005, 205, 'Toys', 60, 300);
+
+ 
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1006, 206, 'Headphones', 90, 450);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1007, 207, 'Magazines', 60, 180);
+
+ 
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1008, 201, 'Snacks', 110, 550);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1009, 202, 'Drinks', 90, 270);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1010, 203, 'Magazines', 60, 180);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1011, 204, 'Headsets', 130, 650);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1012, 205, 'Toys', 70, 350);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1013, 206, 'Headphones', 100, 500);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1014, 207, 'Magazines', 80, 240);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1015, 208, 'Snacks', 120, 600);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1016, 209, 'Drinks', 100, 300);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1017, 210, 'Magazines', 70, 210);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1018, 211, 'Headsets', 140, 700);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1019, 212, 'Toys', 80, 400);
+
+ 
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1020, 201, 'Headphones', 110, 550);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1021, 202, 'Magazines', 90, 270);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1022, 203, 'Snacks', 130, 650);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1023, 204, 'Drinks', 110, 330);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1024, 205, 'Magazines', 80, 240);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1025, 206, 'Headsets', 150, 750);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1026, 207, 'Toys', 90, 450);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1027, 208, 'Headphones', 120, 600);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1028, 209, 'Magazines', 100, 300);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1029, 210, 'Snacks', 140, 700);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1030, 211, 'Drinks', 120, 360);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1031, 212, 'Magazines', 90, 270);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1032, 201, 'Headsets', 110, 550);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1033, 202, 'Toys', 100, 500);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1034, 203, 'Headphones', 120, 600);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1035, 204, 'Magazines', 130, 390);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1036, 205, 'Snacks', 100, 500);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1037, 206, 'Drinks', 90, 270);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1038, 207, 'Magazines', 110, 330);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1039, 208, 'Headsets', 120, 600);
+
+INSERT INTO InFlightSales (SaleID, FlightID, Item, QuantitySold, TotalRevenue)
+VALUES (1040, 209, 'Toys', 130, 650);
+ 
+--INSERT INTO BAGGAGE TRACKING 
+ 
+INSERT INTO BaggageTracking (TrackingID, BaggageID, Status, Location, Timestamp)
+VALUES (1101, 601, 'Checked In', 'JFK Terminal 1', TO_TIMESTAMP('2024-12-01 08:15:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO BaggageTracking (TrackingID, BaggageID, Status, Location, Timestamp)
+VALUES (1102, 602, 'In Transit', 'LAX Terminal 2', TO_TIMESTAMP('2024-12-02 10:15:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO BaggageTracking (TrackingID, BaggageID, Status, Location, Timestamp)
+VALUES (1103, 603, 'Loaded on Flight', 'Heathrow Terminal 5', TO_TIMESTAMP('2024-12-03 12:15:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO BaggageTracking (TrackingID, BaggageID, Status, Location, Timestamp)
+VALUES (1104, 604, 'Delivered', 'Dubai Terminal 3', TO_TIMESTAMP('2024-12-04 14:15:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO BaggageTracking (TrackingID, BaggageID, Status, Location, Timestamp)
+VALUES (1105, 605, 'Checked In', 'Changi Terminal 2', TO_TIMESTAMP('2024-12-05 16:15:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+ 
+INSERT INTO BaggageTracking (TrackingID, BaggageID, Status, Location, Timestamp)
+VALUES (1106, 606, 'Checked In', 'JFK Terminal 2', TO_TIMESTAMP('2024-12-06 07:30:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO BaggageTracking (TrackingID, BaggageID, Status, Location, Timestamp)
+VALUES (1107, 607, 'In Transit', 'Tokyo Narita Terminal 3', TO_TIMESTAMP('2024-12-07 09:30:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+ 
+INSERT INTO BaggageTracking (TrackingID, BaggageID, Status, Location, Timestamp)
+VALUES (1108, 608, 'In Transit', 'London Heathrow Terminal 5', TO_TIMESTAMP('2024-12-07 10:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO BaggageTracking (TrackingID, BaggageID, Status, Location, Timestamp)
+VALUES (1109, 609, 'Checked In', 'Dubai International Terminal 2', TO_TIMESTAMP('2024-12-08 09:15:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO BaggageTracking (TrackingID, BaggageID, Status, Location, Timestamp)
+VALUES (1110, 610, 'In Transit', 'Los Angeles International Terminal 1', TO_TIMESTAMP('2024-12-09 07:30:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO BaggageTracking (TrackingID, BaggageID, Status, Location, Timestamp)
+VALUES (1111, 611, 'Checked In', 'Tokyo Narita Terminal 3', TO_TIMESTAMP('2024-12-10 08:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO BaggageTracking (TrackingID, BaggageID, Status, Location, Timestamp)
+VALUES (1112, 612, 'In Transit', 'JFK Terminal 2', TO_TIMESTAMP('2024-12-11 09:30:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO BaggageTracking (TrackingID, BaggageID, Status, Location, Timestamp)
+VALUES (1113, 613, 'Checked In', 'London Heathrow Terminal 5', TO_TIMESTAMP('2024-12-12 07:45:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO BaggageTracking (TrackingID, BaggageID, Status, Location, Timestamp)
+VALUES (1114, 614, 'In Transit', 'Dubai International Terminal 2', TO_TIMESTAMP('2024-12-13 08:15:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO BaggageTracking (TrackingID, BaggageID, Status, Location, Timestamp)
+VALUES (1115, 615, 'Checked In', 'Los Angeles International Terminal 1', TO_TIMESTAMP('2024-12-14 09:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO BaggageTracking (TrackingID, BaggageID, Status, Location, Timestamp)
+VALUES (1116, 616, 'In Transit', 'Tokyo Narita Terminal 3', TO_TIMESTAMP('2024-12-15 07:30:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO BaggageTracking (TrackingID, BaggageID, Status, Location, Timestamp)
+VALUES (1117, 617, 'Checked In', 'JFK Terminal 2', TO_TIMESTAMP('2024-12-16 08:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO BaggageTracking (TrackingID, BaggageID, Status, Location, Timestamp)
+VALUES (1118, 618, 'In Transit', 'London Heathrow Terminal 5', TO_TIMESTAMP('2024-12-17 09:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO BaggageTracking (TrackingID, BaggageID, Status, Location, Timestamp)
+VALUES (1119, 619, 'Checked In', 'Dubai International Terminal 2', TO_TIMESTAMP('2024-12-18 07:45:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO BaggageTracking (TrackingID, BaggageID, Status, Location, Timestamp)
+VALUES (1120, 620, 'In Transit', 'Los Angeles International Terminal 1', TO_TIMESTAMP('2024-12-19 08:15:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+
+--DRL
+-- SELECT statements for all tables
+
+ 
+SELECT * FROM BaggageTracking;
+ 
+SELECT * FROM InFlightSales;
+
+ 
+SELECT * FROM Payment;
+
+ 
+SELECT * FROM MealInventory;
+
+ 
+SELECT * FROM PassengerMeal;
+
+ 
+SELECT * FROM Meal;
+
+ 
+SELECT * FROM Vendor;
+
+ 
+SELECT * FROM Baggage;
+
+ 
+SELECT * FROM BaggageFees;
+
+ 
+SELECT * FROM BaggagePolicy;
+
+ 
+SELECT * FROM Booking;
+
+ 
+SELECT * FROM Flight;
+
+ 
+SELECT * FROM Airport;
+
+ 
+SELECT * FROM Passenger;
+
+--TO Find flights with their departure and arrival times:
+SELECT F.FlightID, F.FlightNumber, F.DepartureTime, F.ArrivalTime
+FROM Flight F
+ORDER BY F.DepartureTime;
+
+--TO Find the total number of passengers in each class:
+SELECT C.ClassName, COUNT(P.PassengerID) AS TotalPassengers
+FROM Passenger P
+JOIN ClassPolicy C ON P.ClassID = C.ClassID
+GROUP BY C.ClassName
+ORDER BY TotalPassengers DESC;
+
+
+--)Baggage policies with weight and size limits:
+SELECT BP.PolicyID, BP.WeightLimit, BP.SizeLimit, CP.ClassName
+FROM BaggagePolicy BP
+JOIN ClassPolicy CP ON BP.ClassID = CP.ClassID;
+
+--Total baggage fee for a class based on weight limit:
+SELECT BF.ClassID, SUM(BF.FeeAmount) AS TotalFee
+FROM BaggageFees BF
+GROUP BY BF.ClassID
+ORDER BY TotalFee DESC;
+
+--Passengers who booked a specific meal type-Veg 
+SELECT PM.PassengerID, M.Name AS MealName, M.Type AS MealType
+FROM PassengerMeal PM
+JOIN Meal M ON PM.MealID = M.MealID
+WHERE M.Type = 'Veg';
+
+--Find the most frequent flight (based on the highest number of passengers):
+SELECT F.FlightID, F.FlightNumber, COUNT(P.PassengerID) AS PassengerCount
+FROM Flight F
+JOIN Baggage B ON F.FlightID = B.FlightID
+JOIN Passenger P ON B.PassengerID = P.PassengerID
+GROUP BY F.FlightID, F.FlightNumber
+ORDER BY PassengerCount DESC
+
+--Check the meal inventory status for each meal type (Veg/Non-Veg)
+SELECT M.Type, SUM(MI.Quantity) AS TotalQuantityAvailable
+FROM MealInventory MI
+JOIN Meal M ON MI.MealID = M.MealID
+GROUP BY M.Type;
+
+
+--Find passengers who have exceeded the free baggage allowance for their class:
+SELECT P.Name, B.Weight, BP.FreeAllowance, CP.ClassName
+FROM Baggage B
+JOIN Passenger P ON B.PassengerID = P.PassengerID
+JOIN ClassPolicy CP ON B.ClassID = CP.ClassID
+JOIN BaggagePolicy BP ON CP.ClassID = BP.ClassID
+WHERE B.Weight > BP.FreeAllowance;
+
+--List all the vendors and the meals they provide, along with the class they are available for
+SELECT V.VendorName, M.Name AS MealName, CP.ClassName
+FROM Vendor V
+JOIN Meal M ON V.VendorID = M.VendorID
+JOIN ClassPolicy CP ON M.ClassAvailable = CP.ClassID
+ORDER BY V.VendorName, M.Name;
+
+--Find the highest baggage fee paid by passengers based on weight limits:
+SELECT P.Name, BF.FeeAmount, B.Weight
+FROM Baggage B
+JOIN Passenger P ON B.PassengerID = P.PassengerID
+JOIN BaggageFees BF ON B.ClassID = BF.ClassID
+WHERE B.Weight > BF.WeightLimit
+ORDER BY BF.FeeAmount DESC;
